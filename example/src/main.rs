@@ -5,7 +5,7 @@ use imgui_winit_support;
 use imguizmo::{Gizmo, Mode, Operation, Rect};
 use std::time::Instant;
 use winit::{
-    event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent},
+    event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
 };
 
@@ -14,14 +14,11 @@ fn main() {
 
     // Set up window and GPU
     let event_loop = EventLoop::new();
-    let mut hidpi_factor = 1.0;
 
     let (window, display) = glium::backend::glutin::SimpleWindowBuilder::new()
-            .with_title("Tack")
+            .with_title("ImGuizmo Example")
             .with_inner_size(1280, 720)
             .build(&event_loop);
-
-    let mut size = window.inner_size();
 
     let mut imgui = imgui::Context::create();
     let mut platform = imgui_winit_support::WinitPlatform::init(&mut imgui);
@@ -31,28 +28,12 @@ fn main() {
         imgui_winit_support::HiDpiMode::Default,
     );
     imgui.set_ini_filename(None);
-
-    let font_size = (13.0 * hidpi_factor) as f32;
-    imgui.io_mut().font_global_scale = (1.0 / hidpi_factor) as f32;
-
-    imgui.fonts().add_font(&[FontSource::DefaultFontData {
-        config: Some(imgui::FontConfig {
-            oversample_h: 1,
-            pixel_snap_h: true,
-            size_pixels: font_size,
-            ..Default::default()
-        }),
-    }]);
+    imgui
+            .fonts()
+            .add_font(&[imgui::FontSource::DefaultFontData { config: None }]);
 
     let mut renderer = imgui_glium_renderer::Renderer::init(&mut imgui, &display)
             .expect("Failed to initialize imgui renderer.");
-
-    let clear_color = wgpu::Color {
-        r: 0.1,
-        g: 0.2,
-        b: 0.3,
-        a: 1.0,
-    };
 
     let mut last_frame = Instant::now();
 
@@ -90,45 +71,13 @@ fn main() {
     let mut bound_sizing_snap = false;
 
     event_loop.run(move |event, _, control_flow| {
-        *control_flow = if cfg!(feature = "metal-auto-capture") {
-            ControlFlow::Exit
-        } else {
-            ControlFlow::Poll
-        };
         match event {
             Event::WindowEvent {
-                event: WindowEvent::ScaleFactorChanged { scale_factor, .. },
-                ..
-            } => {
-                hidpi_factor = scale_factor;
-            }
-            Event::WindowEvent {
-                event: WindowEvent::Resized(_),
-                ..
-            } => {
-                size = window.inner_size();
-            }
-            Event::WindowEvent {
-                event:
-                    WindowEvent::KeyboardInput {
-                        input:
-                            KeyboardInput {
-                                virtual_keycode: Some(VirtualKeyCode::Escape),
-                                state: ElementState::Pressed,
-                                ..
-                            },
-                        ..
-                    },
-                ..
-            }
-            | Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
                 ..
-            } => {
-                *control_flow = ControlFlow::Exit;
-            }
+            } => *control_flow = ControlFlow::Exit,
             Event::MainEventsCleared => window.request_redraw(),
-            Event::RedrawEventsCleared => {
+            Event::RedrawRequested(_) => {
                 let delta = Instant::now() - last_frame;
                 imgui.io_mut().update_delta_time(delta);
                 last_frame = Instant::now();
@@ -137,8 +86,12 @@ fn main() {
                     .prepare_frame(imgui.io_mut(), &window)
                     .expect("Failed to prepare frame");
                 let ui = imgui.frame();
+                
+                let mut target = display.draw();
+                target.clear_color_and_depth((0.0, 0.0, 0.0, 1.0), 1.0);
 
                 {
+
                     let [width, height] = ui.io().display_size;
                     let aspect_ratio = width / height;
                     let projection: [[f32; 4]; 4] = if !is_orthographic {
@@ -160,24 +113,24 @@ fn main() {
                     let gizmo = Gizmo::begin_frame(&ui);
 
                     ui.window("Gizmo Options").build(|| {
-                        ui.checkbox(("Cube"), &mut draw_cube);
-                        ui.checkbox(("Grid"), &mut draw_grid);
-                        ui.checkbox(("Orthographic"), &mut is_orthographic);
+                        ui.checkbox("Cube", &mut draw_cube);
+                        ui.checkbox("Grid", &mut draw_grid);
+                        ui.checkbox("Orthographic", &mut is_orthographic);
                         Drag::new("Grid Size").build(ui, &mut grid_size);
 
                         ui.new_line();
-                        ui.radio_button(("Local"), &mut mode, Mode::Local);
-                        ui.radio_button(("World"), &mut mode, Mode::World);
+                        ui.radio_button("Local", &mut mode, Mode::Local);
+                        ui.radio_button("World", &mut mode, Mode::World);
 
                         ui.new_line();
-                        ui.radio_button(("Rotate"), &mut operation, Operation::Rotate);
-                        ui.radio_button(("Translate"), &mut operation, Operation::Translate);
-                        ui.radio_button(("Scale"), &mut operation, Operation::Scale);
+                        ui.radio_button("Rotate", &mut operation, Operation::Rotate);
+                        ui.radio_button("Translate", &mut operation, Operation::Translate);
+                        ui.radio_button("Scale", &mut operation, Operation::Scale);
 
                         ui.new_line();
-                        ui.checkbox(("Use snap"), &mut use_snap);
-                        ui.checkbox(("Bound sizing"), &mut bound_sizing);
-                        ui.checkbox(("Bound sizing snap"), &mut bound_sizing_snap);
+                        ui.checkbox("Use snap", &mut use_snap);
+                        ui.checkbox("Bound sizing", &mut bound_sizing);
+                        ui.checkbox("Bound sizing snap", &mut bound_sizing_snap);
                     });
 
                     let rect = Rect::from_display(&ui);
@@ -223,8 +176,6 @@ fn main() {
                 }
 
                 platform.prepare_render(ui, &window);
-                let mut target = display.draw();
-                target.clear_color_and_depth((0.0, 0.0, 0.0, 1.0), 1.0);
                 let draw_data = imgui.render();
                 renderer
                     .render(&mut target, draw_data)
@@ -232,9 +183,9 @@ fn main() {
 
                 target.finish().expect("Failed to swap buffers");
             }
-            _ => (),
+            event => {
+                platform.handle_event(imgui.io_mut(), &window, &event);
+            }
         }
-
-        platform.handle_event(imgui.io_mut(), &window, &event);
     });
 }
