@@ -2,9 +2,5 @@
 members = [
     "imguizmo-sys",
     "imguizmo",
-    "example",
+    "example"
 ]
-
-[patch.crates-io]
-imgui = { version = "0.4", git = "https://github.com/aloucks/imgui-rs.git", branch = "export_include" }
-imgui-sys = { version = "0.4", git = "https://github.com/aloucks/imgui-rs.git", branch = "export_include" }

@@ -46,20 +46,20 @@ impl Projection {
 }
 
 /// The gizmo context for a single frame.
-pub struct Gizmo<'a, 'ui> {
-    ui: &'a Ui<'ui>,
+pub struct Gizmo<'a> {
+    ui: &'a Ui,
 }
 
-impl<'a, 'ui> Gizmo<'a, 'ui> {
-    pub fn begin_frame(ui: &'a Ui<'ui>) -> Gizmo<'a, 'ui> {
+impl<'a> Gizmo<'a> {
+    pub fn begin_frame(ui: &'a Ui) -> Gizmo<'a> {
         begin_frame(ui)
     }
 
-    pub fn builder(&'a self, view: &'a Matrix4, model: &'a mut Matrix4) -> Builder<'a, 'ui> {
+    pub fn builder(&'a self, view: &'a Matrix4, model: &'a mut Matrix4) -> Builder<'a> {
         Builder::new(self, view, model)
     }
 
-    pub fn ui(&self) -> &'a Ui<'ui> {
+    pub fn ui(&self) -> &'a Ui {
         self.ui
     }
 
@@ -180,7 +180,7 @@ impl<'a, 'ui> Gizmo<'a, 'ui> {
 }
 
 /// Call at the start of a new ImGui frame.
-fn begin_frame<'a, 'ui>(ui: &'a Ui<'ui>) -> Gizmo<'a, 'ui> {
+fn begin_frame<'a>(ui: &'a Ui) -> Gizmo<'a> {
     unsafe {
         ffi::ImGuizmo_BeginFrame();
     }
@@ -188,25 +188,25 @@ fn begin_frame<'a, 'ui>(ui: &'a Ui<'ui>) -> Gizmo<'a, 'ui> {
 }
 
 /// Call inside of a window, before `manipulate` in order to draw a gizmo in that window.
-fn set_draw_list<'a, 'ui>(_frame: &Gizmo<'a, 'ui>) {
+fn set_draw_list<'a>(_frame: &Gizmo<'a>) {
     unsafe {
         ffi::ImGuizmo_SetDrawlist();
     }
 }
 
 /// Returns true if the mouse cursor is over any gizmo control (e.g. axis, plan, or screen component).
-fn is_over<'a, 'ui>(_frame: &Gizmo<'a, 'ui>) -> bool {
+fn is_over<'a>(_frame: &Gizmo<'a>) -> bool {
     unsafe { ffi::ImGuizmo_IsOver() }
 }
 
 /// Returns true is the mouse is over a gizmo control and the gizmo is in a moving state.
-fn is_using<'a, 'ui>(_frame: &Gizmo<'a, 'ui>) -> bool {
+fn is_using<'a>(_frame: &Gizmo<'a>) -> bool {
     unsafe { ffi::ImGuizmo_IsUsing() }
 }
 
 /// Enable or disable the gizmo. This state is sticky until the the next call to `enable`.
 /// Gizmos are rendered with grey half transparent color when disabled.
-fn enable<'a, 'ui>(_frame: &Gizmo<'a, 'ui>, enable: bool) {
+fn enable<'a>(_frame: &Gizmo<'a>, enable: bool) {
     unsafe {
         ffi::ImGuizmo_Enable(enable);
     }
@@ -238,14 +238,14 @@ pub fn recompose_matrix_from_components(
 
 /// Set the viewport for rendering. Set to the display size or combine with
 /// `set_draw_list` to render inside of a window.
-fn set_rect<'a, 'ui>(_frame: &Gizmo<'a, 'ui>, x: f32, y: f32, width: f32, height: f32) {
+fn set_rect<'a>(_frame: &Gizmo<'a>, x: f32, y: f32, width: f32, height: f32) {
     unsafe {
         ffi::ImGuizmo_SetRect(x, y, width, height);
     }
 }
 
 /// Render as orthorgraphic. The default is false.
-fn set_orthographic<'a, 'ui>(_frame: &Gizmo<'a, 'ui>, is_orthographic: bool) {
+fn set_orthographic<'a>(_frame: &Gizmo<'a>, is_orthographic: bool) {
     unsafe {
         ffi::ImGuizmo_SetOrthographic(is_orthographic);
     }
@@ -258,8 +258,8 @@ pub fn set_ortho(is_ortho: bool) {
 }
 
 /// Draw a cube for debugging with `manipulate`.
-fn draw_cube<'a, 'ui>(
-    _frame: &Gizmo<'a, 'ui>,
+fn draw_cube<'a>(
+    _frame: &Gizmo<'a>,
     view: &Matrix4,
     projection: &Matrix4,
     model: &Matrix4,
@@ -270,8 +270,8 @@ fn draw_cube<'a, 'ui>(
 }
 
 /// Draw a grid for debugging.
-fn draw_grid<'a, 'ui>(
-    _frame: &Gizmo<'a, 'ui>,
+fn draw_grid<'a>(
+    _frame: &Gizmo<'a>,
     view: &Matrix4,
     projection: &Matrix4,
     model: &Matrix4,
@@ -284,8 +284,8 @@ fn draw_grid<'a, 'ui>(
 
 /// Render a gizmo for manipulating a transformation. See [`Gizmo::manipulate`](struct.Gizmo.html#method.manipulate).
 #[allow(clippy::too_many_arguments)]
-fn manipulate<'a, 'ui>(
-    _frame: &Gizmo<'a, 'ui>,
+fn manipulate<'a>(
+    _frame: &Gizmo<'a>,
     view: &Matrix4,
     projection: &Matrix4,
     operation: Operation,
@@ -327,7 +327,7 @@ pub struct Rect {
 
 impl Rect {
     /// Creates a viewport `Rect` from the current window position and size.
-    pub fn from_window<'ui>(ui: &Ui<'ui>) -> Rect {
+    pub fn from_window<'ui>(ui: &Ui) -> Rect {
         let [x, y] = ui.window_pos();
         let [width, height] = ui.window_size();
         Rect {
@@ -339,7 +339,7 @@ impl Rect {
     }
 
     /// Creates a viewport `Rect` from the display size.
-    pub fn from_display<'ui>(ui: &Ui<'ui>) -> Rect {
+    pub fn from_display<'ui>(ui: &Ui) -> Rect {
         let [width, height] = ui.io().display_size;
         Rect {
             x: 0.0,
@@ -351,8 +351,8 @@ impl Rect {
 }
 
 /// Configure a gizmo for transformation manipulation.
-pub struct Builder<'a, 'ui> {
-    pub gizmo: &'a Gizmo<'a, 'ui>,
+pub struct Builder<'a> {
+    pub gizmo: &'a Gizmo<'a>,
     pub view: &'a Matrix4,
     pub model: &'a mut Matrix4,
     pub projection: Projection,
@@ -365,12 +365,12 @@ pub struct Builder<'a, 'ui> {
     pub bounds_snap: Option<&'a mut Vector3>,
 }
 
-impl<'a, 'ui> Builder<'a, 'ui> {
+impl<'a> Builder<'a> {
     pub fn new(
-        gizmo: &'a Gizmo<'a, 'ui>,
+        gizmo: &'a Gizmo<'a>,
         view: &'a Matrix4,
         model: &'a mut Matrix4,
-    ) -> Builder<'a, 'ui> {
+    ) -> Builder<'a> {
         Builder {
             gizmo,
             view,

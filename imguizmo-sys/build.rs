@@ -3,7 +3,7 @@ use std::path::Path;
 
 fn main() {
     let mut build = cc::Build::new();
-    let cimgui_include = env::var("DEP_IMGUI_THIRD_PARTY").expect("DEP_IMGUI_THIRD_PARTY");
+    let cimgui_include: String = "E:\\Projects\\C++\\cimgui".to_string();
     let imgui_include = Path::new(&cimgui_include)
         .join("imgui")
         .display()
@@ -26,6 +26,7 @@ fn main() {
         };
         build.define(key, val);
     }
+    build.define("IMGUI_DEFINE_MATH_OPERATORS", "");
     build
         .cpp(true)
         .file("third_party/ImGuizmo/ImGuizmo.cpp")

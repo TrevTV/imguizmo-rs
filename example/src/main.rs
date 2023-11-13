@@ -1,15 +1,12 @@
 use cgmath::{EuclideanSpace, InnerSpace};
-use futures::executor::block_on;
+use glium::Surface;
 use imgui::*;
-use imgui_wgpu::Renderer;
 use imgui_winit_support;
 use imguizmo::{Gizmo, Mode, Operation, Rect};
 use std::time::Instant;
 use winit::{
-    dpi::LogicalSize,
     event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
-    window::Window,
 };
 
 fn main() {
@@ -18,47 +15,13 @@ fn main() {
     // Set up window and GPU
     let event_loop = EventLoop::new();
     let mut hidpi_factor = 1.0;
-    let (window, mut size, surface) = {
-        let version = env!("CARGO_PKG_VERSION");
 
-        let window = Window::new(&event_loop).unwrap();
-        window.set_inner_size(LogicalSize {
-            width: 1280.0,
-            height: 720.0,
-        });
-        window.set_title(&format!("ImGuizmo {}", version));
-        let size = window.inner_size();
+    let (window, display) = glium::backend::glutin::SimpleWindowBuilder::new()
+            .with_title("Tack")
+            .with_inner_size(1280, 720)
+            .build(&event_loop);
 
-        let surface = wgpu::Surface::create(&window);
-
-        (window, size, surface)
-    };
-
-    let adapter = block_on(wgpu::Adapter::request(
-        &wgpu::RequestAdapterOptions {
-            power_preference: wgpu::PowerPreference::HighPerformance,
-            compatible_surface: Some(&surface),
-        },
-        wgpu::BackendBit::PRIMARY,
-    ))
-    .unwrap();
-
-    let (mut device, mut queue) = block_on(adapter.request_device(&wgpu::DeviceDescriptor {
-        extensions: wgpu::Extensions {
-            anisotropic_filtering: false,
-        },
-        limits: wgpu::Limits::default(),
-    }));
-
-    let mut sc_desc = wgpu::SwapChainDescriptor {
-        usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
-        format: wgpu::TextureFormat::Bgra8Unorm,
-        width: size.width as u32,
-        height: size.height as u32,
-        present_mode: wgpu::PresentMode::Mailbox,
-    };
-
-    let mut swap_chain = device.create_swap_chain(&surface, &sc_desc);
+    let mut size = window.inner_size();
 
     let mut imgui = imgui::Context::create();
     let mut platform = imgui_winit_support::WinitPlatform::init(&mut imgui);
@@ -81,6 +44,9 @@ fn main() {
         }),
     }]);
 
+    let mut renderer = imgui_glium_renderer::Renderer::init(&mut imgui, &display)
+            .expect("Failed to initialize imgui renderer.");
+
     let clear_color = wgpu::Color {
         r: 0.1,
         g: 0.2,
@@ -88,17 +54,7 @@ fn main() {
         a: 1.0,
     };
 
-    let mut renderer = Renderer::new(
-        &mut imgui,
-        &device,
-        &mut queue,
-        sc_desc.format,
-        Some(clear_color),
-    );
-
     let mut last_frame = Instant::now();
-
-    let mut last_cursor = None;
 
     let mut cube_model: [[f32; 4]; 4] = [
         [1.0, 0.0, 0.0, 0.0],
@@ -151,16 +107,6 @@ fn main() {
                 ..
             } => {
                 size = window.inner_size();
-
-                sc_desc = wgpu::SwapChainDescriptor {
-                    usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
-                    format: wgpu::TextureFormat::Bgra8Unorm,
-                    width: size.width as u32,
-                    height: size.height as u32,
-                    present_mode: wgpu::PresentMode::Mailbox,
-                };
-
-                swap_chain = device.create_swap_chain(&surface, &sc_desc);
             }
             Event::WindowEvent {
                 event:
@@ -183,15 +129,10 @@ fn main() {
             }
             Event::MainEventsCleared => window.request_redraw(),
             Event::RedrawEventsCleared => {
-                last_frame = imgui.io_mut().update_delta_time(last_frame);
-
-                let frame = match swap_chain.get_next_texture() {
-                    Ok(frame) => frame,
-                    Err(e) => {
-                        eprintln!("dropped frame: {:?}", e);
-                        return;
-                    }
-                };
+                let delta = Instant::now() - last_frame;
+                imgui.io_mut().update_delta_time(delta);
+                last_frame = Instant::now();
+                
                 platform
                     .prepare_frame(imgui.io_mut(), &window)
                     .expect("Failed to prepare frame");
@@ -218,28 +159,27 @@ fn main() {
 
                     let gizmo = Gizmo::begin_frame(&ui);
 
-                    if let Some(window) = imgui::Window::new(im_str!("Gizmo Options")).begin(&ui) {
-                        ui.checkbox(im_str!("Cube"), &mut draw_cube);
-                        ui.checkbox(im_str!("Grid"), &mut draw_grid);
-                        ui.checkbox(im_str!("Orthographic"), &mut is_orthographic);
-                        ui.drag_float(im_str!("Grid size"), &mut grid_size).build();
+                    ui.window("Gizmo Options").build(|| {
+                        ui.checkbox(("Cube"), &mut draw_cube);
+                        ui.checkbox(("Grid"), &mut draw_grid);
+                        ui.checkbox(("Orthographic"), &mut is_orthographic);
+                        Drag::new("Grid Size").build(ui, &mut grid_size);
 
                         ui.new_line();
-                        ui.radio_button(im_str!("Local"), &mut mode, Mode::Local);
-                        ui.radio_button(im_str!("World"), &mut mode, Mode::World);
+                        ui.radio_button(("Local"), &mut mode, Mode::Local);
+                        ui.radio_button(("World"), &mut mode, Mode::World);
 
                         ui.new_line();
-                        ui.radio_button(im_str!("Rotate"), &mut operation, Operation::Rotate);
-                        ui.radio_button(im_str!("Translate"), &mut operation, Operation::Translate);
-                        ui.radio_button(im_str!("Scale"), &mut operation, Operation::Scale);
+                        ui.radio_button(("Rotate"), &mut operation, Operation::Rotate);
+                        ui.radio_button(("Translate"), &mut operation, Operation::Translate);
+                        ui.radio_button(("Scale"), &mut operation, Operation::Scale);
 
                         ui.new_line();
-                        ui.checkbox(im_str!("Use snap"), &mut use_snap);
-                        ui.checkbox(im_str!("Bound sizing"), &mut bound_sizing);
-                        ui.checkbox(im_str!("Bound sizing snap"), &mut bound_sizing_snap);
+                        ui.checkbox(("Use snap"), &mut use_snap);
+                        ui.checkbox(("Bound sizing"), &mut bound_sizing);
+                        ui.checkbox(("Bound sizing snap"), &mut bound_sizing_snap);
+                    });
 
-                        window.end(&ui);
-                    }
                     let rect = Rect::from_display(&ui);
                     gizmo.set_rect(rect.x, rect.y, rect.width, rect.height);
                     gizmo.set_orthographic(is_orthographic);
@@ -282,18 +222,15 @@ fn main() {
                     );
                 }
 
-                let mut encoder: wgpu::CommandEncoder =
-                    device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
-
-                if last_cursor != Some(ui.mouse_cursor()) {
-                    last_cursor = Some(ui.mouse_cursor());
-                    platform.prepare_render(&ui, &window);
-                }
+                platform.prepare_render(ui, &window);
+                let mut target = display.draw();
+                target.clear_color_and_depth((0.0, 0.0, 0.0, 1.0), 1.0);
+                let draw_data = imgui.render();
                 renderer
-                    .render(ui.render(), &mut device, &mut encoder, &frame.view)
+                    .render(&mut target, draw_data)
                     .expect("Rendering failed");
 
-                queue.submit(&[encoder.finish()]);
+                target.finish().expect("Failed to swap buffers");
             }
             _ => (),
         }

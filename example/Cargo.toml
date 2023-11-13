@@ -8,13 +8,14 @@ publish = false
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-wgpu = "0.5"
-imguizmo = { version = "0.0.1", path = "../imguizmo" }
+wgpu = "0.18"
+imguizmo = { path = "../imguizmo" }
 futures = "0.3"
-imgui = "0.4"
-imgui-winit-support = "0.4"
-imgui-wgpu = "0.7"
-winit = "0.22"
+imgui = { git = "https://github.com/TrevTV/imgui-rs.git", features = [ "docking" ] }
+imgui-winit-support = { git = "https://github.com/TrevTV/imgui-rs.git" }
+imgui-glium-renderer = { git = "https://github.com/TrevTV/imgui-rs.git" }
+glium = { git = "https://github.com/TrevTV/glium.git" }
+winit = "0.28"
 raw-window-handle = "0.3"
 env_logger = "0.7"
 cgmath = "0.17"
