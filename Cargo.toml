@@ -2,5 +2,5 @@
 members = [
     "imguizmo-sys",
     "imguizmo",
-    "example"
+    "example",
 ]

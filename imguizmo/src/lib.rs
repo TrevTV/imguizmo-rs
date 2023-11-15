@@ -12,9 +12,8 @@
 //!     .manipulate();
 //! ```
 //!
+use ffi::{ImGuizmo_ViewManipulate, ImVec2, ImGuizmo_OPERATION_TRANSLATE, ImGuizmo_OPERATION_ROTATE, ImGuizmo_OPERATION_SCALE, ImGuizmo_OPERATION_BOUNDS, ImGuizmo_MODE_LOCAL, ImGuizmo_MODE_WORLD};
 use imguizmo_sys as ffi;
-
-pub use imguizmo_sys::{Mode, Operation};
 
 use imgui::Ui;
 
@@ -24,6 +23,22 @@ pub type Vector2 = [f32; 2];
 pub type Vector3 = [f32; 3];
 pub type Vector4 = [f32; 4];
 pub type Matrix4 = [Vector4; 4];
+
+#[repr(i32)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub enum Operation {
+    Translate = ImGuizmo_OPERATION_TRANSLATE,
+    Rotate = ImGuizmo_OPERATION_ROTATE,
+    Scale = ImGuizmo_OPERATION_SCALE,
+    Bounds = ImGuizmo_OPERATION_BOUNDS,
+}
+
+#[repr(i32)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub enum Mode {
+    Local = ImGuizmo_MODE_LOCAL,
+    World = ImGuizmo_MODE_WORLD,
+}
 
 #[derive(Copy, Clone, Debug)]
 pub enum Projection {
@@ -132,7 +147,13 @@ impl<'a> Gizmo<'a> {
         background_color: u32,
     ) {
         unsafe {
-            ffi::ImGuizmo_ViewManipulate(view, camera_distance, &position, &size, background_color);
+            ImGuizmo_ViewManipulate(view.as_mut_ptr() as *mut f32, camera_distance, ImVec2 {
+                x: position[0],
+                y: position[1],
+            }, ImVec2 {
+                x: size[0],
+                y: size[1],
+            }, background_color);
         }
     }
 
@@ -190,7 +211,7 @@ fn begin_frame<'a>(ui: &'a Ui) -> Gizmo<'a> {
 /// Call inside of a window, before `manipulate` in order to draw a gizmo in that window.
 fn set_draw_list<'a>(_frame: &Gizmo<'a>) {
     unsafe {
-        ffi::ImGuizmo_SetDrawlist();
+        ffi::ImGuizmo_SetDrawlist(std::ptr::null_mut());
     }
 }
 
@@ -220,7 +241,7 @@ pub fn decompose_matrix_to_components(
     scale: &mut Vector3,
 ) {
     unsafe {
-        ffi::ImGuizmo_DecomposeMatrixToComponents(matrix, translation, rotation, scale);
+        ffi::ImGuizmo_DecomposeMatrixToComponents(matrix.as_ptr() as *const f32, translation.as_mut_ptr() as *mut f32, rotation.as_mut_ptr() as *mut f32, scale.as_mut_ptr() as *mut f32);
     }
 }
 
@@ -232,7 +253,7 @@ pub fn recompose_matrix_from_components(
     matrix: &mut Matrix4,
 ) {
     unsafe {
-        ffi::ImGuizmo_RecomposeMatrixFromComponents(translation, rotation, scale, matrix);
+        ffi::ImGuizmo_RecomposeMatrixFromComponents(translation.as_ptr() as *const f32, rotation.as_ptr() as *const f32, scale.as_ptr() as *const f32, matrix.as_mut_ptr() as *mut f32);
     }
 }
 
@@ -265,7 +286,7 @@ fn draw_cube<'a>(
     model: &Matrix4,
 ) {
     unsafe {
-        ffi::ImGuizmo_DrawCubes(view, projection, model, 1);
+        ffi::ImGuizmo_DrawCubes(view.as_ptr() as *const f32, projection.as_ptr() as *const f32, model.as_ptr() as *const f32, 1);
     }
 }
 
@@ -278,7 +299,7 @@ fn draw_grid<'a>(
     grid_size: f32,
 ) {
     unsafe {
-        ffi::ImGuizmo_DrawGrid(view, projection, model, grid_size);
+        ffi::ImGuizmo_DrawGrid(view.as_ptr() as *const f32, projection.as_ptr() as *const f32, model.as_ptr() as *const f32, grid_size);
     }
 }
 
@@ -302,11 +323,11 @@ fn manipulate<'a>(
         let local_bounds = local_bounds.map_or_else(ptr::null_mut, |v| v.as_mut_ptr() as _);
         let bounds_snap = bounds_snap.map_or_else(ptr::null_mut, |v| v.as_mut_ptr() as _);
         ffi::ImGuizmo_Manipulate(
-            view,
-            projection,
-            operation,
-            mode,
-            model,
+            view.as_ptr() as *const f32,
+            projection.as_ptr() as *const f32,
+            operation as i32,
+            mode as i32,
+            model.as_mut_ptr() as *mut f32,
             delta_matrix,
             snap,
             local_bounds,
@@ -553,20 +574,3 @@ pub fn orthographic(
 
     m
 }
-
-//#[cfg(test)]
-//mod tests {
-//    use super::*;
-//
-//    #[test]
-//    fn foo() {
-//        let view = Default::default();
-//        let mut model = Default::default();
-//
-//        let mut local_bounds = [Vector3::default(); 2];
-//
-//        GizmoBuilder::new(&view, &mut model)
-//            .with_local_bounds(&mut local_bounds)
-//            .with_operation(Operation::Translate);
-//    }
-//}

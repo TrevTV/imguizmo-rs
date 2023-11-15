@@ -1,3 +1,0 @@
-[submodule "imguizmo-sys/third_party/ImGuizmo"]
-	path = imguizmo-sys/third_party/ImGuizmo
-	url = https://github.com/CedricGuillemet/ImGuizmo.git

@@ -1,9 +1,10 @@
 [package]
 name = "imguizmo"
-version = "0.0.1"
-authors = ["Aaron Loucks <aloucks@cofront.net>"]
-edition = "2018"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 imgui = { git = "https://github.com/TrevTV/imgui-rs.git", features = [ "docking" ] }
-imguizmo-sys = { version = "0.0.1", path = "../imguizmo-sys" }
+imguizmo-sys = { path = "../imguizmo-sys" }
