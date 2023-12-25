@@ -13,11 +13,7 @@ struct Paths {
     pub imgui_repo: PathBuf,
 }
 
-fn download_repo(repo_url: &str, path: &std::path::Path) {
-    if path.exists() {
-        return;
-    }
-
+fn download_repo(repo_url: &str, path: &std::path::Path) {    
     _ = match Repository::clone(repo_url, path) {
         Ok(repo) => repo,
         Err(e) => panic!("failed to clone: {}", e),
@@ -25,7 +21,12 @@ fn download_repo(repo_url: &str, path: &std::path::Path) {
 }
 
 fn download_imgui(paths: &Paths) {
-    let imgui_rs_repo = paths.temp_path.clone().join("imgui-rs");
+    if paths.temp_path.clone().join("imgui").exists() {
+        return;
+    }
+
+    let imgui_rs_repo: PathBuf = paths.temp_path.clone().join("imgui-rs");
+
     download_repo(IMGUI_REPO_URL, &imgui_rs_repo);
 
     // TODO: assumes you are using the docking feature
@@ -34,7 +35,9 @@ fn download_imgui(paths: &Paths) {
 }
 
 fn compile_imguizmo(paths: &Paths) {
-    download_repo(IMGUIZMO_REPO_URL, &paths.imguizmo_repo);
+    if !paths.imguizmo_repo.exists() {
+        download_repo(IMGUIZMO_REPO_URL, &paths.imguizmo_repo);
+    }
 
     let mut build = cc::Build::new();
     build.cpp(true);
@@ -89,7 +92,7 @@ fn generate_bindings(paths: &Paths) {
 }
 
 fn main() {
-    let temp_path = std::env::var("TEMP").unwrap();
+    let temp_path = std::env::var("OUT_DIR").unwrap();
     let temp_path = std::path::Path::new(&temp_path).join("imguizmo-sys-tmp");
 
     let imguizmo_repo = temp_path.clone().join("ImGuizmo");
@@ -102,16 +105,13 @@ fn main() {
     };
 
     // TODO: have a reuse system, this is not fast.
-    if paths.temp_path.exists() {
-        std::fs::remove_dir_all(&paths.temp_path).unwrap();
+    if !paths.temp_path.exists() {
+        std::fs::create_dir(&paths.temp_path).unwrap();
     }
 
-    std::fs::create_dir(&paths.temp_path).unwrap();
 
     download_imgui(&paths);
     compile_imguizmo(&paths);
     println!("cargo:rustc-link-lib=imguizmo");
     generate_bindings(&paths);
-
-    std::fs::remove_dir_all(&paths.temp_path).unwrap();
 }
